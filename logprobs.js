@@ -9,6 +9,24 @@ if (!navigator.gpu) {
   document.getElementById('load-btn').disabled = true;
 }
 
+// ── Models ────────────────────────────────────────────────────────
+const models = [
+  { id: 'onnx-community/Qwen2.5-Coder-0.5B-Instruct', label: 'Qwen2.5-Coder-0.5B  — ~350 MB',  dtype: 'q4f16' },
+  { id: 'onnx-community/Qwen2.5-Coder-1.5B-Instruct', label: 'Qwen2.5-Coder-1.5B  — ~1 GB',    dtype: 'q4f16', default: true },
+  { id: 'onnx-community/Qwen2.5-Coder-3B-Instruct',   label: 'Qwen2.5-Coder-3B  — ~2 GB',      dtype: 'q4f16' },
+  { id: 'onnx-community/Qwen3-0.6B-ONNX',             label: 'Qwen3-0.6B  — ~570 MB',           dtype: 'q4f16' },
+  { id: 'onnx-community/Qwen3-1.7B-ONNX',             label: 'Qwen3-1.7B  — ~1.4 GB',           dtype: 'q4f16' },
+  { id: 'onnx-community/Qwen3-4B-ONNX',               label: 'Qwen3-4B  — ~2.8 GB',             dtype: 'q4f16' },
+  { id: 'onnx-community/Qwen3.5-2B-ONNX',             label: 'Qwen3.5-2B  — ~1.6 GB',           dtype: 'q4f16' },
+  { id: 'onnx-community/Qwen3.5-4B-ONNX',             label: 'Qwen3.5-4B  — ~3 GB',             dtype: 'q4f16' },
+  { id: 'onnx-community/gemma-3-270m-it-ONNX',        label: 'Gemma 3 270M  — ~275 MB',         dtype: 'q4f16' },
+  { id: 'onnx-community/gemma-3-1b-it-ONNX',          label: 'Gemma 3 1B  — ~765 MB',           dtype: 'q4f16' },
+  { id: 'onnx-community/gemma-4-E2B-it-ONNX',         label: 'Gemma 4 2B  — ~1.5 GB',           dtype: 'q4f16' },
+  { id: 'onnx-community/LFM2-350M-ONNX',              label: 'LFM2-350M  — ~255 MB',             dtype: 'q4f16' },
+  { id: 'onnx-community/LFM2-700M-ONNX',              label: 'LFM2-700M  — ~500 MB',             dtype: 'q4f16' },
+  { id: 'onnx-community/LFM2-1.2B-ONNX',              label: 'LFM2-1.2B  — ~760 MB',             dtype: 'q4f16' },
+];
+
 // ── Code samples ──────────────────────────────────────────────────
 const codeSamples = {
   passwordStorage: {
@@ -61,6 +79,14 @@ const topkSlider    = document.getElementById('topk-slider');
 const topkVal       = document.getElementById('topk-val');
 const tempSlider    = document.getElementById('temp-slider');
 const tempVal       = document.getElementById('temp-val');
+
+for (const m of models) {
+  const opt = document.createElement('option');
+  opt.value = m.id;
+  opt.textContent = m.label;
+  if (m.default) opt.selected = true;
+  modelSel.appendChild(opt);
+}
 
 const customOpt = document.createElement('option');
 customOpt.value = '';
@@ -129,6 +155,7 @@ function getTopK() { return parseInt(topkSlider.value, 10); }
 // ── Load model ────────────────────────────────────────────────────
 loadBtn.addEventListener('click', async () => {
   const modelId = modelSel.value;
+  const dtype = models.find(m => m.id === modelId)?.dtype ?? 'q4f16';
   loadBtn.disabled = true;
   modelSel.disabled = true;
   progressWrap.hidden = false;
@@ -141,7 +168,7 @@ loadBtn.addEventListener('click', async () => {
 
     setProgress(0, 'Downloading model weights (cached after first load)…');
     mdl = await AutoModelForCausalLM.from_pretrained(modelId, {
-      dtype: 'q4f16',
+      dtype,
       device: 'webgpu',
       progress_callback: makeProgress('Model'),
     });
