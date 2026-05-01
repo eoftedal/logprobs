@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Probability Explorer</title>
+<link rel="stylesheet" href="logprobs.css">
+</head>
+<body>
+
+<div id="err-webgpu" class="alert alert-error" hidden>
+  <strong>WebGPU not available.</strong><br>
+  This tool requires WebGPU. Please use Chrome 113+ or Edge 113+.<br>
+  If you're on a supported browser, try enabling <code>chrome://flags/#enable-unsafe-webgpu</code>.
+</div>
+
+<!-- ── Setup card ─────────────────────────────────────────────── -->
+<div id="setup-card" class="card">
+  <p class="card-title">Model Setup</p>
+  <label for="model-sel">Model <span style="color:#484f58">(downloaded &amp; cached from HuggingFace on first use - loaded in browser memory)</span></label>
+  <select id="model-sel">
+    <option value="onnx-community/Qwen2.5-Coder-0.5B-Instruct">Qwen2.5-Coder-0.5B  — ~350 MB</option>
+    <option value="onnx-community/Qwen2.5-Coder-1.5B-Instruct" selected>Qwen2.5-Coder-1.5B  — ~1 GB  (recommended)</option>
+    <option value="onnx-community/Qwen2.5-Coder-3B-Instruct">Qwen2.5-Coder-3B  — ~2 GB</option>
+    <option value="onnx-community/Qwen3.5-2B-ONNX">Qwen3.5-2B</option>
+    <option value="onnx-community/Qwen3.5-4B-ONNX">Qwen3.5-4B</option>
+    <option value="onnx-community/gemma-4-E2B-it-ONNX">Gemma 4 2B  — ~1.5 GB</option>
+  </select>
+  <div class="row">
+    <button id="load-btn">Load Model</button>
+  </div>
+  <div id="progress-wrap" class="progress-wrap" hidden>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="progress-label" id="progress-label"></div>
+  </div>
+  <label for="topk-slider">Tokens to show: <strong id="topk-val">10</strong></label>
+  <input type="range" id="topk-slider" min="1" max="50" value="10"
+    style="width:100%;accent-color:#58a6ff;margin-bottom:1rem;cursor:pointer">
+  <label for="temp-slider">Temperature: <strong id="temp-val">1.0</strong></label>
+  <input type="range" id="temp-slider" min="0" max="5" step="0.1" value="1"
+    style="width:100%;accent-color:#58a6ff;margin-bottom:1rem;cursor:pointer">
+</div>
+
+<!-- ── Input card ──────────────────────────────────────────────── -->
+<div id="input-card" class="card" hidden>
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="raw">Raw text</button>
+    <button class="tab-btn" data-tab="chat">Chat template</button>
+  </div>
+  <div id="tab-raw">
+    <textarea id="starting-text">package org.example.expensing;
+public class PasswordStorage {
+  public String passwordStorageAlgorithm = "</textarea>
+  </div>
+  <div id="tab-chat" hidden>
+    <label for="system-text">System prompt</label>
+    <textarea id="system-text" style="min-height:70px">You are a helpful coding assistant.</textarea>
+    <label for="user-text">User / code</label>
+    <textarea id="user-text">package org.example.expensing;
+public class PasswordStorage {
+  public String passwordStorageAlgorithm = "</textarea>
+  </div>
+  <button id="start-btn">Get Next Tokens</button>
+</div>
+
+<!-- ── Explorer card ───────────────────────────────────────────── -->
+<div id="explorer-card" class="card" hidden>
+  <p class="card-title">Explorer</p>
+  <div id="acc-text"></div>
+  <div id="token-grid"></div>
+  <div class="explorer-footer">
+    <span class="hint" id="hint">Click a token to extend the text.</span>
+    <button class="ghost" id="undo-btn" disabled>Undo</button>
+    <button class="ghost" id="reset-btn">Reset</button>
+  </div>
+</div>
+
+<script type="module" src="logprobs.js"></script>
+</body>
+</html>
