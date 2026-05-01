@@ -48,17 +48,15 @@
     <button class="tab-btn" data-tab="chat">Chat template</button>
   </div>
   <div id="tab-raw">
-    <textarea id="starting-text">package org.example.expensing;
-public class PasswordStorage {
-  public String passwordStorageAlgorithm = "</textarea>
+    <label for="sample-sel">Starting point</label>
+    <select id="sample-sel"></select>
+    <textarea id="starting-text"></textarea>
   </div>
   <div id="tab-chat" hidden>
     <label for="system-text">System prompt</label>
     <textarea id="system-text" style="min-height:70px">You are a helpful coding assistant.</textarea>
     <label for="user-text">User / code</label>
-    <textarea id="user-text">package org.example.expensing;
-public class PasswordStorage {
-  public String passwordStorageAlgorithm = "</textarea>
+    <textarea id="user-text"></textarea>
   </div>
   <button id="start-btn">Get Next Tokens</button>
 </div>

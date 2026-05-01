@@ -9,6 +9,23 @@ if (!navigator.gpu) {
   document.getElementById('load-btn').disabled = true;
 }
 
+// ── Code samples ──────────────────────────────────────────────────
+const codeSamples = {
+  passwordStorage: {
+    label: 'Password storage',
+    code: `package org.example.expensing;
+public class PasswordStorage {
+  public String passwordStorageAlgorithm = "`,
+  },
+  sql: {
+    label: 'SQL query',
+    code: `package org.example.expensing;
+public class UserRepository {
+  public User getUserById(String userId) {
+    String query = "SELECT * FROM Users WHERE id=`,
+  }
+};
+
 // ── State ──────────────────────────────────────────────────────────
 let tok = null;
 let mdl = null;
@@ -27,6 +44,7 @@ const progressLabel = document.getElementById('progress-label');
 const setupCard     = document.getElementById('setup-card');
 const inputCard     = document.getElementById('input-card');
 const explorerCard  = document.getElementById('explorer-card');
+const sampleSel     = document.getElementById('sample-sel');
 const startingText  = document.getElementById('starting-text');
 const systemText    = document.getElementById('system-text');
 const userText      = document.getElementById('user-text');
@@ -43,6 +61,41 @@ const topkSlider    = document.getElementById('topk-slider');
 const topkVal       = document.getElementById('topk-val');
 const tempSlider    = document.getElementById('temp-slider');
 const tempVal       = document.getElementById('temp-val');
+
+const customOpt = document.createElement('option');
+customOpt.value = '';
+customOpt.textContent = '— Custom —';
+sampleSel.appendChild(customOpt);
+for (const [key, { label }] of Object.entries(codeSamples)) {
+  const opt = document.createElement('option');
+  opt.value = key;
+  opt.textContent = label;
+  sampleSel.appendChild(opt);
+}
+
+const hashCode = location.hash.slice(1);
+if (hashCode) {
+  startingText.value = decodeURIComponent(hashCode);
+  sampleSel.value = '';
+} else {
+  sampleSel.value = 'passwordStorage';
+  startingText.value = codeSamples.passwordStorage.code;
+}
+
+function updateHash() {
+  const val = startingText.value;
+  window.history.replaceState(null, '', val ? '#' + encodeURIComponent(val) : location.pathname + location.search);
+}
+
+sampleSel.addEventListener('change', () => {
+  if (sampleSel.value) startingText.value = codeSamples[sampleSel.value].code;
+  updateHash();
+});
+
+startingText.addEventListener('input', () => {
+  sampleSel.value = '';
+  updateHash();
+});
 
 function getTemperature() { return parseFloat(tempSlider.value); }
 
@@ -300,3 +353,5 @@ function escHtml(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+
