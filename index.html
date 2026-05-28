@@ -19,6 +19,17 @@
   <p class="card-title">Model Setup</p>
   <label for="model-sel">Model <span style="color:#484f58">(downloaded &amp; cached from HuggingFace on first use - loaded in browser memory)</span></label>
   <select id="model-sel"></select>
+  <div id="api-config" hidden style="margin-top:0.75rem">
+    <label for="api-url">Base URL</label>
+    <input type="text" id="api-url" placeholder="https://api.openai.com/v1"
+      style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:6px 10px;font-size:0.9rem;margin-bottom:0.5rem">
+    <label for="api-key">API Key</label>
+    <input type="password" id="api-key" placeholder="sk-..."
+      style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:6px 10px;font-size:0.9rem;margin-bottom:0.5rem">
+    <label for="api-model">Model name</label>
+    <input type="text" id="api-model" placeholder="gpt-4o-mini"
+      style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:6px 10px;font-size:0.9rem;margin-bottom:0.5rem">
+  </div>
   <div class="row">
     <button id="load-btn">Load Model</button>
   </div>
@@ -27,7 +38,7 @@
     <div class="progress-label" id="progress-label"></div>
   </div>
   <label for="topk-slider">Tokens to show: <strong id="topk-val">10</strong></label>
-  <input type="range" id="topk-slider" min="1" max="50" value="10"
+  <input type="range" id="topk-slider" min="1" max="20" value="10"
     style="width:100%;accent-color:#58a6ff;margin-bottom:1rem;cursor:pointer">
   <label for="temp-slider">Temperature: <strong id="temp-val">1.0</strong></label>
   <input type="range" id="temp-slider" min="0" max="5" step="0.1" value="1"

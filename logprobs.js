@@ -35,6 +35,14 @@ const codeSamples = {
 public class PasswordStorage {
   public String passwordStorageAlgorithm = "`,
   },
+  passwordStorageComment: {
+    label: 'Password storage (with comment)',
+    code: `package org.example.expensing;
+public class PasswordStorage {
+  /* Secure password storage for passwords that are not recoverable.
+     According to current standards the algorithm for hashing the passwords 
+     should be `
+  },
   sql: {
     label: 'SQL query',
     code: `package org.example.expensing;
@@ -52,6 +60,9 @@ let history = [];
 let chatMode = false;
 let templatePrefix = '';
 let lastLogits = null;
+let apiMode = false;
+let apiConfig = { url: '', key: '', model: '' };
+let lastApiLogprobs = null;
 
 // ── Element refs ───────────────────────────────────────────────────
 const loadBtn       = document.getElementById('load-btn');
@@ -87,6 +98,15 @@ for (const m of models) {
   if (m.default) opt.selected = true;
   modelSel.appendChild(opt);
 }
+const apiOpt = document.createElement('option');
+apiOpt.value = '__api__';
+apiOpt.textContent = 'Custom (OpenAI API)';
+modelSel.appendChild(apiOpt);
+
+const apiConfigDiv = document.getElementById('api-config');
+modelSel.addEventListener('change', () => {
+  apiConfigDiv.hidden = modelSel.value !== '__api__';
+});
 
 const customOpt = document.createElement('option');
 customOpt.value = '';
@@ -126,7 +146,11 @@ startingText.addEventListener('input', () => {
 function getTemperature() { return parseFloat(tempSlider.value); }
 
 function rerender() {
-  if (lastLogits) renderButtons(topKFromProbs(probsFromLogits(lastLogits, getTemperature()), getTopK()));
+  if (apiMode && lastApiLogprobs) {
+    renderButtons(applyApiTemperatureTopK(lastApiLogprobs, getTemperature(), getTopK()));
+  } else if (lastLogits) {
+    renderButtons(topKFromProbs(probsFromLogits(lastLogits, getTemperature()), getTopK()));
+  }
 }
 
 topkSlider.addEventListener('input', () => {
@@ -155,6 +179,31 @@ function getTopK() { return parseInt(topkSlider.value, 10); }
 // ── Load model ────────────────────────────────────────────────────
 loadBtn.addEventListener('click', async () => {
   const modelId = modelSel.value;
+
+  if (modelId === '__api__') {
+    const url   = document.getElementById('api-url').value.trim().replace(/\/$/, '');
+    const key   = document.getElementById('api-key').value.trim();
+    const model = document.getElementById('api-model').value.trim();
+    if (!url || !model) {
+      progressWrap.hidden = false;
+      setProgress(0, 'Error: Base URL and model name are required.');
+      progressFill.style.background = '#f85149';
+      return;
+    }
+    apiConfig = { url, key, model };
+    apiMode = true;
+    loadBtn.disabled = true;
+    modelSel.disabled = true;
+    // Hide chat tab — API mode uses raw text only
+    document.querySelector('[data-tab="chat"]').hidden = true;
+    tabRaw.hidden = false;
+    document.querySelector('[data-tab="raw"]').classList.add('active');
+    document.querySelector('[data-tab="chat"]').classList.remove('active');
+    inputCard.hidden = false;
+    return;
+  }
+
+  apiMode = false;
   const dtype = models.find(m => m.id === modelId)?.dtype ?? 'q4f16';
   loadBtn.disabled = true;
   modelSel.disabled = true;
@@ -243,6 +292,7 @@ resetBtn.addEventListener('click', () => {
   templatePrefix = '';
   chatMode = false;
   lastLogits = null;
+  lastApiLogprobs = null;
   history = [];
   undoBtn.disabled = true;
 });
@@ -268,7 +318,9 @@ async function fetchAndRender() {
   }
 
   try {
-    const tokens = await getTopTokens(currentText, getTopK());
+    const tokens = apiMode
+      ? await getApiTopTokens(currentText)
+      : await getTopTokens(currentText, getTopK());
     renderButtons(tokens);
     hint.textContent = 'Click a token to extend the text.';
   } catch (err) {
@@ -334,6 +386,44 @@ async function getTopTokens(text, k) {
   lastLogits = data.slice(offset, offset + vocabSize);
   const probs = probsFromLogits(lastLogits, getTemperature());
   return topKFromProbs(probs, k);
+}
+
+// ── API inference path ─────────────────────────────────────────────
+function applyApiTemperatureTopK(logprobs, temperature, k) {
+  if (temperature === 0) {
+    const best = logprobs.reduce((a, b) => a.logprob > b.logprob ? a : b);
+    return [{ token: best.token, prob: 1.0 }];
+  }
+  const scaled = logprobs.map(e => e.logprob / temperature);
+  const max = Math.max(...scaled);
+  const exps = scaled.map(v => Math.exp(v - max));
+  const sum = exps.reduce((a, b) => a + b, 0);
+  const entries = logprobs.map((e, i) => ({ token: e.token, prob: exps[i] / sum }));
+  entries.sort((a, b) => b.prob - a.prob);
+  return entries.slice(0, k);
+}
+
+async function getApiTopTokens(text) {
+  console.log(text);
+  const resp = await fetch(`${apiConfig.url}/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiConfig.key}`,
+    },
+    body: JSON.stringify({
+      model: apiConfig.model,
+      prompt: text,
+      max_tokens: 1,
+      temperature: 1.0,
+      logprobs: true,
+      top_logprobs: 20,
+    }),
+  });
+  if (!resp.ok) throw new Error(`API error ${resp.status}: ${await resp.text()}`);
+  const data = await resp.json();
+  lastApiLogprobs = data.choices[0].logprobs.content[0].top_logprobs;
+  return applyApiTemperatureTopK(lastApiLogprobs, getTemperature(), getTopK());
 }
 
 // ── Render token buttons ───────────────────────────────────────────
