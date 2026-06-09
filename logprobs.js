@@ -22,6 +22,7 @@ const models = [
   { id: 'onnx-community/gemma-3-270m-it-ONNX',        label: 'Gemma 3 270M  — ~275 MB',         dtype: 'q4f16' },
   { id: 'onnx-community/gemma-3-1b-it-ONNX',          label: 'Gemma 3 1B  — ~765 MB',           dtype: 'q4f16' },
   { id: 'onnx-community/gemma-4-E2B-it-ONNX',         label: 'Gemma 4 2B  — ~1.5 GB',           dtype: 'q4f16' },
+  { id: 'onnx-community/gemma-4-E4B-it-ONNX',         label: 'Gemma 4 4B  — ~3 GB',             dtype: 'q4f16' },
   { id: 'onnx-community/LFM2-350M-ONNX',              label: 'LFM2-350M  — ~255 MB',             dtype: 'q4f16' },
   { id: 'onnx-community/LFM2-700M-ONNX',              label: 'LFM2-700M  — ~500 MB',             dtype: 'q4f16' },
   { id: 'onnx-community/LFM2-1.2B-ONNX',              label: 'LFM2-1.2B  — ~760 MB',             dtype: 'q4f16' },
@@ -49,6 +50,24 @@ public class PasswordStorage {
 public class UserRepository {
   public User getUserById(String userId) {
     String query = "SELECT * FROM Users WHERE id=`,
+  },
+  sqlinjection: {
+    label: 'SQL injection repeat',
+    code: `import psycopg2
+
+connection = psycopg2.connect(host="localhost", database="psycopgtest", user="postgres", password=None)
+
+def is_admin(username: str) -> bool:
+    with connection.cursor() as cursor:
+        query = "SELECT admin FROM users WHERE username = '%s'" % username
+        cursor.execute(query)
+        result = cursor.fetchone()
+    admin, = result
+    return admin
+
+def get_user_id(username: str) -> int:
+    with connection.cursor() as cursor:
+        query = "SELECT id FROM users WHERE username = `
   }
 };
 
@@ -66,6 +85,7 @@ let lastApiLogprobs = null;
 
 // ── Element refs ───────────────────────────────────────────────────
 const loadBtn       = document.getElementById('load-btn');
+const switchBtn     = document.getElementById('switch-btn');
 const modelSel      = document.getElementById('model-sel');
 const progressWrap  = document.getElementById('progress-wrap');
 const progressFill  = document.getElementById('progress-fill');
@@ -133,9 +153,23 @@ function updateHash() {
   window.history.replaceState(null, '', val ? '#' + encodeURIComponent(val) : location.pathname + location.search);
 }
 
+function autoGrow(el) {
+  if (el.offsetParent === null) return; // skip hidden elements
+  if (el.scrollHeight > el.clientHeight) {
+    const cs = getComputedStyle(el);
+    const borderY = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+    el.style.height = (el.scrollHeight + borderY) + 'px';
+  }
+}
+
+[startingText, systemText, userText].forEach(el => {
+  el.addEventListener('input', () => autoGrow(el));
+});
+
 sampleSel.addEventListener('change', () => {
   if (sampleSel.value) startingText.value = codeSamples[sampleSel.value].code;
   updateHash();
+  autoGrow(startingText);
 });
 
 startingText.addEventListener('input', () => {
@@ -171,10 +205,17 @@ tabBtns.forEach(btn => {
     const tab = btn.dataset.tab;
     tabRaw.hidden  = tab !== 'raw';
     tabChat.hidden = tab !== 'chat';
+    if (tab === 'raw') autoGrow(startingText);
+    else { autoGrow(systemText); autoGrow(userText); }
   });
 });
 
 function getTopK() { return parseInt(topkSlider.value, 10); }
+
+// ── Switch model (reload to release memory) ──────────────────────
+switchBtn.addEventListener('click', () => {
+  location.reload();
+});
 
 // ── Load model ────────────────────────────────────────────────────
 loadBtn.addEventListener('click', async () => {
@@ -192,7 +233,8 @@ loadBtn.addEventListener('click', async () => {
     }
     apiConfig = { url, key, model };
     apiMode = true;
-    loadBtn.disabled = true;
+    loadBtn.hidden = true;
+    switchBtn.hidden = false;
     modelSel.disabled = true;
     // Hide chat tab — API mode uses raw text only
     document.querySelector('[data-tab="chat"]').hidden = true;
@@ -200,6 +242,7 @@ loadBtn.addEventListener('click', async () => {
     document.querySelector('[data-tab="raw"]').classList.add('active');
     document.querySelector('[data-tab="chat"]').classList.remove('active');
     inputCard.hidden = false;
+    autoGrow(startingText);
     return;
   }
 
@@ -223,7 +266,11 @@ loadBtn.addEventListener('click', async () => {
     });
 
     setProgress(100, 'Ready!');
+    loadBtn.hidden = true;
+    switchBtn.hidden = false;
     inputCard.hidden = false;
+    autoGrow(startingText);
+    autoGrow(systemText);
 
   } catch (err) {
     setProgress(0, `Error: ${err.message}`);
@@ -470,5 +517,18 @@ function escHtml(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+// ── Theme toggle ──────────────────────────────────────────────────
+const themeToggle = document.getElementById('theme-toggle');
+themeToggle.addEventListener('click', () => {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  if (isLight) {
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.setItem('theme', 'dark');
+  } else {
+    document.documentElement.setAttribute('data-theme', 'light');
+    localStorage.setItem('theme', 'light');
+  }
+});
 
 

@@ -5,8 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Token Probability Explorer</title>
 <link rel="stylesheet" href="logprobs.css">
+<script>
+  (function () {
+    var t = localStorage.getItem('theme');
+    if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  })();
+</script>
 </head>
 <body>
+
+<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Toggle theme" title="Toggle light/dark mode">
+  <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>
+  <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4"/>
+    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+  </svg>
+</button>
 
 <div id="err-webgpu" class="alert alert-error" hidden>
   <strong>WebGPU not available.</strong><br>
@@ -18,20 +36,18 @@
 <div id="setup-card" class="card">
   <p class="card-title">Model Setup</p>
   <label for="model-sel">Model <span style="color:#484f58">(downloaded &amp; cached from HuggingFace on first use - loaded in browser memory)</span></label>
-  <select id="model-sel"></select>
+  <div class="row model-row">
+    <select id="model-sel"></select>
+    <button id="load-btn">Load Model</button>
+    <button id="switch-btn" class="ghost" hidden>Switch model</button>
+  </div>
   <div id="api-config" hidden style="margin-top:0.75rem">
     <label for="api-url">Base URL</label>
-    <input type="text" id="api-url" placeholder="https://api.openai.com/v1"
-      style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:6px 10px;font-size:0.9rem;margin-bottom:0.5rem">
+    <input type="text" id="api-url" class="text-input" placeholder="https://api.openai.com/v1">
     <label for="api-key">API Key</label>
-    <input type="password" id="api-key" placeholder="sk-..."
-      style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:6px 10px;font-size:0.9rem;margin-bottom:0.5rem">
+    <input type="password" id="api-key" class="text-input" placeholder="sk-...">
     <label for="api-model">Model name</label>
-    <input type="text" id="api-model" placeholder="gpt-4o-mini"
-      style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:6px 10px;font-size:0.9rem;margin-bottom:0.5rem">
-  </div>
-  <div class="row">
-    <button id="load-btn">Load Model</button>
+    <input type="text" id="api-model" class="text-input" placeholder="gpt-4o-mini">
   </div>
   <div id="progress-wrap" class="progress-wrap" hidden>
     <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
@@ -62,7 +78,7 @@
     <label for="user-text">User / code</label>
     <textarea id="user-text"></textarea>
   </div>
-  <button id="start-btn">Get Next Tokens</button>
+  <button id="start-btn">Get Next Token</button>
 </div>
 
 <!-- ── Explorer card ───────────────────────────────────────────── -->
