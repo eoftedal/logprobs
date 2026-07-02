@@ -35,23 +35,23 @@
 <!-- ── Setup card ─────────────────────────────────────────────── -->
 <div id="setup-card" class="card">
   <p class="card-title">Model Setup</p>
-  <label for="model-sel">Model <span style="color:#484f58">(downloaded &amp; cached from HuggingFace on first use - loaded in browser memory)</span></label>
+  <label for="model-sel">Model <span style="color:var(--text-dim)">(downloaded &amp; cached from HuggingFace on first use - loaded in browser memory)</span></label>
   <div class="row model-row">
     <select id="model-sel"></select>
     <button id="load-btn">Load Model</button>
     <button id="switch-btn" class="ghost" hidden>Switch model</button>
   </div>
   <div id="api-config" hidden style="margin-top:0.75rem">
-    <label for="api-url">Base URL</label>
-    <input type="text" id="api-url" class="text-input" placeholder="https://api.openai.com/v1">
-    <label for="api-key">API Key</label>
+    <label for="api-url">Base URL <span style="color:var(--text-dim)">(must serve /v1/completions with logprobs, e.g. llama.cpp, vLLM, LM Studio)</span></label>
+    <input type="text" id="api-url" class="text-input" placeholder="http://localhost:8080/v1">
+    <label for="api-key">API Key <span style="color:var(--text-dim)">(optional)</span></label>
     <input type="password" id="api-key" class="text-input" placeholder="sk-...">
     <label for="api-model">Model name</label>
-    <input type="text" id="api-model" class="text-input" placeholder="gpt-4o-mini">
+    <input type="text" id="api-model" class="text-input" placeholder="qwen2.5-coder-1.5b-instruct">
   </div>
   <div id="progress-wrap" class="progress-wrap" hidden>
-    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-    <div class="progress-label" id="progress-label"></div>
+    <div class="progress-status" id="progress-status"></div>
+    <div class="progress-files" id="progress-files"></div>
   </div>
   <label for="topk-slider">Tokens to show: <strong id="topk-val">10</strong></label>
   <input type="range" id="topk-slider" min="1" max="20" value="10"

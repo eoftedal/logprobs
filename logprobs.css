@@ -175,6 +175,15 @@ button.ghost:hover:not(:disabled) { background: var(--ghost-hover-bg); color: va
 
 /* Progress */
 .progress-wrap { margin-bottom: 0.9rem; }
+.progress-status {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  min-height: 1.1em;
+  margin-bottom: 0.5rem;
+}
+.progress-status.error { color: var(--error-fg); }
+.progress-files { display: flex; flex-direction: column; gap: 0.5rem; }
+.progress-file:last-child .progress-bar { margin-bottom: 0; }
 .progress-bar {
   background: var(--progress-bg);
   border-radius: 4px;

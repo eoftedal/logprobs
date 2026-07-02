@@ -68,6 +68,11 @@ def is_admin(username: str) -> bool:
 def get_user_id(username: str) -> int:
     with connection.cursor() as cursor:
         query = "SELECT id FROM users WHERE username = `
+  },
+  randomNumber: {
+    label: 'Random number generation',
+    code: `Question: Pick a number between 0 and 9
+Answer: I'll pick the number `
   }
 };
 
@@ -82,14 +87,16 @@ let lastLogits = null;
 let apiMode = false;
 let apiConfig = { url: '', key: '', model: '' };
 let lastApiLogprobs = null;
+let renderGen = 0; // invalidates in-flight inference after reset/undo/new-start
 
 // ── Element refs ───────────────────────────────────────────────────
 const loadBtn       = document.getElementById('load-btn');
 const switchBtn     = document.getElementById('switch-btn');
 const modelSel      = document.getElementById('model-sel');
-const progressWrap  = document.getElementById('progress-wrap');
-const progressFill  = document.getElementById('progress-fill');
-const progressLabel = document.getElementById('progress-label');
+const progressWrap   = document.getElementById('progress-wrap');
+const progressStatus = document.getElementById('progress-status');
+const progressFiles  = document.getElementById('progress-files');
+const fileRows = new Map();
 const setupCard     = document.getElementById('setup-card');
 const inputCard     = document.getElementById('input-card');
 const explorerCard  = document.getElementById('explorer-card');
@@ -120,7 +127,7 @@ for (const m of models) {
 }
 const apiOpt = document.createElement('option');
 apiOpt.value = '__api__';
-apiOpt.textContent = 'Custom (OpenAI API)';
+apiOpt.textContent = 'Custom (OpenAI-compatible API)';
 modelSel.appendChild(apiOpt);
 
 const apiConfigDiv = document.getElementById('api-config');
@@ -139,9 +146,14 @@ for (const [key, { label }] of Object.entries(codeSamples)) {
   sampleSel.appendChild(opt);
 }
 
-const hashCode = location.hash.slice(1);
-if (hashCode) {
-  startingText.value = decodeURIComponent(hashCode);
+let hashText = '';
+try {
+  hashText = decodeURIComponent(location.hash.slice(1));
+} catch {
+  // malformed percent-encoding in a shared link — fall back to the default sample
+}
+if (hashText) {
+  startingText.value = hashText;
   sampleSel.value = '';
 } else {
   sampleSel.value = 'passwordStorage';
@@ -227,8 +239,8 @@ loadBtn.addEventListener('click', async () => {
     const model = document.getElementById('api-model').value.trim();
     if (!url || !model) {
       progressWrap.hidden = false;
-      setProgress(0, 'Error: Base URL and model name are required.');
-      progressFill.style.background = '#f85149';
+      resetProgressFiles();
+      setStatus('Error: Base URL and model name are required.', true);
       return;
     }
     apiConfig = { url, key, model };
@@ -251,21 +263,23 @@ loadBtn.addEventListener('click', async () => {
   loadBtn.disabled = true;
   modelSel.disabled = true;
   progressWrap.hidden = false;
+  resetProgressFiles();
 
   try {
-    setProgress(0, 'Loading tokenizer…');
+    setStatus('Loading tokenizer…');
     tok = await AutoTokenizer.from_pretrained(modelId, {
       progress_callback: makeProgress('Tokenizer'),
     });
 
-    setProgress(0, 'Downloading model weights (cached after first load)…');
+    setStatus('Downloading model weights (cached after first load)…');
     mdl = await AutoModelForCausalLM.from_pretrained(modelId, {
       dtype,
       device: 'webgpu',
       progress_callback: makeProgress('Model'),
     });
 
-    setProgress(100, 'Ready!');
+    setStatus('Ready!');
+    resetProgressFiles();
     loadBtn.hidden = true;
     switchBtn.hidden = false;
     inputCard.hidden = false;
@@ -273,8 +287,7 @@ loadBtn.addEventListener('click', async () => {
     autoGrow(systemText);
 
   } catch (err) {
-    setProgress(0, `Error: ${err.message}`);
-    progressFill.style.background = '#f85149';
+    setStatus(`Error: ${err.message}`, true);
     loadBtn.disabled = false;
     modelSel.disabled = false;
     console.error(err);
@@ -283,19 +296,50 @@ loadBtn.addEventListener('click', async () => {
 
 function makeProgress(label) {
   return (info) => {
-    if (!info) return;
-    const file = info.file ? ` — ${info.file}` : '';
-    if (info.progress != null) {
-      setProgress(info.progress, `${label}${file}: ${Math.round(info.progress)}%`);
+    if (!info || !info.file) return;
+    const key = `${label}|${info.file}`;
+    let row = fileRows.get(key);
+    if (!row) {
+      row = createFileRow(info.file);
+      fileRows.set(key, row);
+    }
+    if (info.status === 'done') {
+      row.fill.style.width = '100%';
+      row.label.textContent = `${info.file}: done`;
+    } else if (info.progress != null) {
+      row.fill.style.width = `${info.progress}%`;
+      row.label.textContent = `${info.file}: ${Math.round(info.progress)}%`;
     } else if (info.status) {
-      setProgress(null, `${label}${file}: ${info.status}`);
+      row.label.textContent = `${info.file}: ${info.status}`;
     }
   };
 }
 
-function setProgress(pct, label) {
-  if (pct != null) progressFill.style.width = `${pct}%`;
-  if (label != null) progressLabel.textContent = label;
+function createFileRow(file) {
+  const wrap = document.createElement('div');
+  wrap.className = 'progress-file';
+  const bar = document.createElement('div');
+  bar.className = 'progress-bar';
+  const fill = document.createElement('div');
+  fill.className = 'progress-fill';
+  bar.appendChild(fill);
+  const label = document.createElement('div');
+  label.className = 'progress-label';
+  label.textContent = `${file}: …`;
+  wrap.append(bar, label);
+  progressFiles.appendChild(wrap);
+  return { wrap, fill, label };
+}
+
+function resetProgressFiles() {
+  fileRows.clear();
+  progressFiles.innerHTML = '';
+  progressStatus.classList.remove('error');
+}
+
+function setStatus(text, isError = false) {
+  progressStatus.textContent = text;
+  progressStatus.classList.toggle('error', isError);
 }
 
 // ── Start ──────────────────────────────────────────────────────────
@@ -332,9 +376,11 @@ startBtn.addEventListener('click', async () => {
 
 // ── Reset ──────────────────────────────────────────────────────────
 resetBtn.addEventListener('click', () => {
+  renderGen++;
   explorerCard.hidden = true;
   inputCard.hidden = false;
   tokenGrid.innerHTML = '';
+  tokenGrid.classList.remove('loading');
   currentText = '';
   templatePrefix = '';
   chatMode = false;
@@ -354,6 +400,7 @@ undoBtn.addEventListener('click', async () => {
 
 // ── Core: get top-k tokens ─────────────────────────────────────────
 async function fetchAndRender() {
+  const gen = ++renderGen;
   tokenGrid.classList.add('loading');
   hint.textContent = 'Computing token probabilities…';
 
@@ -365,16 +412,26 @@ async function fetchAndRender() {
   }
 
   try {
-    const tokens = apiMode
-      ? await getApiTopTokens(currentText)
-      : await getTopTokens(currentText, getTopK());
+    let tokens;
+    if (apiMode) {
+      const logprobs = await fetchApiLogprobs(currentText);
+      if (gen !== renderGen) return;
+      lastApiLogprobs = logprobs;
+      tokens = applyApiTemperatureTopK(logprobs, getTemperature(), getTopK());
+    } else {
+      const logits = await computeLogits(currentText);
+      if (gen !== renderGen) return;
+      lastLogits = logits;
+      tokens = topKFromProbs(probsFromLogits(logits, getTemperature()), getTopK());
+    }
     renderButtons(tokens);
     hint.textContent = 'Click a token to extend the text.';
   } catch (err) {
+    if (gen !== renderGen) return;
     hint.textContent = `Error: ${err.message}`;
     console.error(err);
   } finally {
-    tokenGrid.classList.remove('loading');
+    if (gen === renderGen) tokenGrid.classList.remove('loading');
   }
 }
 
@@ -415,11 +472,13 @@ function topKFromProbs(probs, k) {
   }));
 }
 
-async function getTopTokens(text, k) {
+async function computeLogits(text) {
   const fullText = chatMode ? templatePrefix + text : text;
   const inputs = tok(fullText, {
     return_tensors: 'pt',
-    add_special_tokens: false,
+    // the rendered chat template already contains the special tokens;
+    // raw text needs them added (e.g. Gemma expects a leading <bos>)
+    add_special_tokens: !chatMode,
   });
 
   const output = await mdl(inputs);
@@ -430,9 +489,7 @@ async function getTopTokens(text, k) {
   const data      = logits.data; // Float32Array
   const offset    = (seqLen - 1) * vocabSize;
 
-  lastLogits = data.slice(offset, offset + vocabSize);
-  const probs = probsFromLogits(lastLogits, getTemperature());
-  return topKFromProbs(probs, k);
+  return data.slice(offset, offset + vocabSize);
 }
 
 // ── API inference path ─────────────────────────────────────────────
@@ -450,32 +507,46 @@ function applyApiTemperatureTopK(logprobs, temperature, k) {
   return entries.slice(0, k);
 }
 
-async function getApiTopTokens(text) {
-  console.log(text);
+async function fetchApiLogprobs(text) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (apiConfig.key) headers['Authorization'] = `Bearer ${apiConfig.key}`;
   const resp = await fetch(`${apiConfig.url}/completions`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiConfig.key}`,
-    },
+    headers,
     body: JSON.stringify({
       model: apiConfig.model,
       prompt: text,
       max_tokens: 1,
       temperature: 1.0,
-      logprobs: true,
-      top_logprobs: 20,
+      logprobs: 20, // int form per the completions endpoint; some servers cap this lower
     }),
   });
   if (!resp.ok) throw new Error(`API error ${resp.status}: ${await resp.text()}`);
-  const data = await resp.json();
-  lastApiLogprobs = data.choices[0].logprobs.content[0].top_logprobs;
-  return applyApiTemperatureTopK(lastApiLogprobs, getTemperature(), getTopK());
+  return parseTopLogprobs(await resp.json());
+}
+
+// Normalizes to [{ token, logprob }, …] — servers answer /completions with
+// either the legacy completions shape or the chat-completions shape.
+function parseTopLogprobs(data) {
+  const lp = data.choices?.[0]?.logprobs;
+  if (!lp) throw new Error('No logprobs in API response — the server may not support them.');
+  // chat-completions shape: logprobs.content[0].top_logprobs = [{ token, logprob }, …]
+  const chat = lp.content?.[0]?.top_logprobs;
+  if (Array.isArray(chat) && chat.length) {
+    return chat.map(({ token, logprob }) => ({ token, logprob }));
+  }
+  // legacy completions shape: logprobs.top_logprobs[0] = { "<token>": <logprob>, … }
+  const legacy = lp.top_logprobs?.[0];
+  if (legacy && typeof legacy === 'object' && Object.keys(legacy).length) {
+    return Object.entries(legacy).map(([token, logprob]) => ({ token, logprob }));
+  }
+  throw new Error('Unrecognized logprobs format in API response.');
 }
 
 // ── Render token buttons ───────────────────────────────────────────
 function renderButtons(tokens) {
   tokenGrid.innerHTML = '';
+  if (!tokens.length) return;
   const maxProb = tokens[0].prob;
 
   for (const { token, prob } of tokens) {
